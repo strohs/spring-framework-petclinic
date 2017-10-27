@@ -56,28 +56,28 @@ public class PetclinicInitializer extends AbstractDispatcherServletInitializer {
     @Override
     protected WebApplicationContext createRootApplicationContext() {
         AnnotationConfigWebApplicationContext rootAppContext = new AnnotationConfigWebApplicationContext();
-        rootAppContext.register(RootApplicationContextConfig.class);
-        rootAppContext.getEnvironment().setDefaultProfiles(SPRING_PROFILE);
+        rootAppContext.register( RootApplicationContextConfig.class );
+        rootAppContext.getEnvironment().setDefaultProfiles( SPRING_PROFILE );
         return rootAppContext;
     }
 
     @Override
     protected WebApplicationContext createServletApplicationContext() {
         AnnotationConfigWebApplicationContext webAppContext = new AnnotationConfigWebApplicationContext();
-        webAppContext.register(MvcCoreConfig.class);
+        webAppContext.register( MvcCoreConfig.class );
         return webAppContext;
     }
 
     @Override
     protected String[] getServletMappings() {
-        return new String[]{"/"};
+        return new String[]{ "/" };
     }
 
     @Override
     protected Filter[] getServletFilters() {
         // Used to provide the ability to enter Chinese characters inside the Owner Form
-        CharacterEncodingFilter characterEncodingFilter = new CharacterEncodingFilter("UTF-8", true);
-        return new Filter[]{characterEncodingFilter};
+        CharacterEncodingFilter characterEncodingFilter = new CharacterEncodingFilter( "UTF-8", true );
+        return new Filter[]{ characterEncodingFilter };
     }
 
 }
