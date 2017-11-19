@@ -3,9 +3,9 @@ package org.springframework.samples.petclinic.repository.jdbc;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.ResultSetExtractor;
-import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.*;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.samples.petclinic.config.BusinessConfig;
 import org.springframework.samples.petclinic.model.Owner;
 import org.springframework.samples.petclinic.model.Person;
@@ -13,12 +13,16 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
@@ -117,7 +121,75 @@ public class JdbcTest {
         System.out.println( vetSpecs.toString() );
     }
 
+    @Test
+    public void rowCallBackHandlerTest() throws Exception {
+        String sql = "SELECT * FROM owners";
+        int ownerCount = 10;
+        RowCountCallbackHandler rowCounter = new RowCountCallbackHandler();
 
+        jdbcTemplate.query( sql, rowCounter );
+
+        assertThat( rowCounter.rowCount, is( ownerCount ) );
+    }
+
+    @Test
+    @Transactional
+    public void updatePetTypeTest() throws Exception {
+        String sql = "UPDATE types SET name = ? WHERE id = ?";
+        String selectNameSql = "SELECT name FROM types WHERE id = ?";
+        String newName = "elephant";
+        Integer id = 6;
+
+        int updatedRows = jdbcTemplate.update( sql, newName, id );
+
+        assertThat( updatedRows, is(1) );
+        String name = jdbcTemplate.queryForObject( selectNameSql, String.class ,id );
+        assertThat( name, is( name ) );
+
+    }
+
+    @Test
+    @Transactional
+    public void insertPetTypeTest() throws Exception {
+        String sql = "INSERT INTO types (id, name) VALUES (?,?)";
+        String selectSql = "SELECT id,name FROM types WHERE id = ?";
+        String newName = "elephant";
+        Integer newId = 7;
+
+        int updatedRows = jdbcTemplate.update( sql, newId, newName );
+
+        assertThat( updatedRows, is(1) );
+        Map<String,Object> map = jdbcTemplate.queryForMap( selectSql, newId );
+        assertThat( map, notNullValue() );
+        assertThat( map.get( "id" ), is( newId ) );
+        assertThat( map.get( "name" ), is( newName ) );
+
+    }
+
+    @Test
+    @Transactional
+    public void insertPetTypeWithGeneratedKeyTest() throws Exception {
+        String sql = "INSERT INTO types (name) VALUES (?)";
+        String selectSql = "SELECT id,name FROM types WHERE id = ?";
+        String newName = "elephant";
+        Integer newId = 7;
+
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(
+            connection -> {
+                PreparedStatement ps = connection.prepareStatement( sql, new String[] {"id"});
+                ps.setString(1, newName);
+                return ps;
+            },
+            keyHolder);
+
+        assertThat( keyHolder.getKey(), is(newId) );
+        Map<String,Object> map = jdbcTemplate.queryForMap( selectSql, newId );
+        assertThat( map, notNullValue() );
+        assertThat( map.get( "id" ), is( newId ) );
+        assertThat( map.get( "name" ), is( newName ) );
+
+    }
 
     private RowMapper<Owner> ownerRowMapper = ( ResultSet rs, int rowNum ) -> {
         Owner owner = new Owner();
@@ -192,6 +264,19 @@ public class JdbcTest {
             sb.append( ", specialties=" ).append( specialties );
             sb.append( '}' );
             return sb.toString();
+        }
+    }
+
+    private class RowCountCallbackHandler implements RowCallbackHandler {
+        private int rowCount;
+
+        @Override
+        public void processRow( ResultSet rs ) throws SQLException {
+            rowCount++;
+        }
+
+        public int getRowCount() {
+            return rowCount;
         }
     }
 
